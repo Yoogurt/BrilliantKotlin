@@ -70,7 +70,7 @@ internal object MemoryMapper {
         if (OS.PAGE_OFFSET(start.toLong()) != 0.toLong())
             return -1
 
-        val startIndex = (start shr OS.PAGE_SHIFT).toInt()
+        val startIndex = (start shr OS.PAGE_SHIFT)
         val endIndex = ((OS.PAGE_END(length.toLong()) shr OS.PAGE_SHIFT) + startIndex).toInt()
         if (OS.debug) {
             println("start $start length $length")
@@ -107,7 +107,7 @@ internal object MemoryMapper {
 
         val arrayLength = os.mFlag.size
         for (i in 0..arrayLength - 1) {
-            if (os.mFlag[i].toInt() == -1) {
+            if (os.mFlag[i] == -1) {
 
                 if (++blockCount >= needBlockCount) {
                     if (needBlockCount == 1)
@@ -205,8 +205,8 @@ internal object MemoryMapper {
         os.mFlag = flag
 
         if (OS.debug) {
-            Log.e("os.memory = ${os.memory.size}");
-            Log.e("os.mFlag = ${os.mFlag.size}");
+            Log.e("os.memory = ${os.memory.size}")
+            Log.e("os.mFlag = ${os.mFlag.size}")
         }
 
     }

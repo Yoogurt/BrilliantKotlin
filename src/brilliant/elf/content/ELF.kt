@@ -16,18 +16,6 @@ import brilliant.elf.content.ELF_Constant.STB_Info.STB_WEAK
 import brilliant.elf.content.ELF_Definition.ELF_R_SYM
 import brilliant.elf.content.ELF_Definition.ELF_R_TYPE
 import brilliant.elf.content.ELF_Definition.ELF_ST_BIND
-
-import java.io.File
-import java.io.PrintStream
-import java.io.RandomAccessFile
-import java.util.ArrayList
-import java.util.HashMap
-import java.util.LinkedHashMap
-import java.util.LinkedList
-
-import javax.activation.UnsupportedDataTypeException
-import javax.management.RuntimeErrorException
-
 import brilliant.elf.content.ELF_Dynamic.Elf_Sym
 import brilliant.elf.content.ELF_ProgramHeader.ELF_Phdr
 import brilliant.elf.content.ELF_Relocate.Elf_rel
@@ -35,9 +23,12 @@ import brilliant.elf.util.ByteUtil
 import brilliant.elf.util.Log
 import brilliant.elf.vm.OS
 import brilliant.elf.vm.OS.Companion.MAP_FIXED
-import brilliant.elf.vm.OS.Companion.PAGE_START
-import brilliant.elf.vm.OS.Companion.PAGE_OFFSET
 import brilliant.elf.vm.OS.Companion.PAGE_END
+import brilliant.elf.vm.OS.Companion.PAGE_START
+import java.io.File
+import java.io.RandomAccessFile
+import java.util.*
+import javax.activation.UnsupportedDataTypeException
 
 /**
  * Construct a new Elf decoder which only support arm/32bit
@@ -83,8 +74,8 @@ private constructor(file: File, do_load: Boolean) {
         private set
     internal lateinit var elf_phdr: ELF_ProgramHeader
         private set
-    private var elf_dynamic: ELF_Dynamic? = null
-
+    internal lateinit var elf_dynamic: ELF_Dynamic
+        private set
     /* current elf needs file */
     private var needed: Array<ELF?>? = null
 
@@ -174,13 +165,13 @@ private constructor(file: File, do_load: Boolean) {
         /*
 		 * big endian will be supported someday rather than now
 		 */
-        if (!elf_header!!.isLittleEndian)
+        if (!elf_header.isLittleEndian)
             throw UnsupportedDataTypeException("ELFDecoder don't support big endian architecture")
 
         /*
 		 * 64bit will be supported someday rather than now
 		 */
-        if (!elf_header!!.is32Bit)
+        if (!elf_header.is32Bit)
             throw UnsupportedDataTypeException("ELFDecoder don't support except 32 bit architecture")
 
         elf_phdr = ELF_ProgramHeader(raf, elf_header, false)
@@ -205,7 +196,7 @@ private constructor(file: File, do_load: Boolean) {
     @Throws(ELFDecodeException::class)
     private fun reserveAddressSpace() {
 
-        val allLoadableSegment = elf_phdr!!.allLoadableSegment
+        val allLoadableSegment = elf_phdr.allLoadableSegment
 
         val r = phdr_table_get_load_size(allLoadableSegment)
 
@@ -263,7 +254,7 @@ private constructor(file: File, do_load: Boolean) {
 
     private fun loadSegments(raf: RandomAccessFile) {
 
-        val phs = elf_phdr!!.allLoadableSegment
+        val phs = elf_phdr.allLoadableSegment
         for (ph in phs) {
 
             val m = MapEntry()
@@ -283,7 +274,7 @@ private constructor(file: File, do_load: Boolean) {
             m.file_page_start = PAGE_START(m.file_start)
             m.file_length = m.file_end - m.file_page_start
 
-            if (0 > OS.mainImage.mmap(m.seg_page_start.toInt(), m.file_length.toInt(), MAP_FIXED.toInt(), raf,
+            if (0 > OS.mainImage.mmap(m.seg_page_start.toInt(), m.file_length.toInt(), MAP_FIXED, raf,
                     m.file_page_start))
                 throw RuntimeException("Unable to mmap segment : " + ph.toString())
 
@@ -299,28 +290,28 @@ private constructor(file: File, do_load: Boolean) {
 
     private fun link_image() {
 
-        if (elf_dynamic!!.dT_HASH > 0) {
+        if (elf_dynamic.dT_HASH > 0) {
             /* extract some useful informations */
             nbucket = ByteUtil.bytes2Int32(OS.mainImage.memory,
-                    elf_dynamic!!.dT_HASH + elf_load_bias + uint32_t * 0, uint32_t, elf_header!!.isLittleEndian) // value
+                    elf_dynamic.dT_HASH + elf_load_bias + uint32_t * 0, uint32_t, elf_header.isLittleEndian) // value
             nchain = ByteUtil.bytes2Int32(OS.mainImage.memory,
-                    elf_dynamic!!.dT_HASH + elf_load_bias + uint32_t * 1, uint32_t, elf_header!!.isLittleEndian) // value
-            bucket = elf_dynamic!!.dT_HASH + elf_load_bias + 8 // pointer
-            chain = elf_dynamic!!.dT_HASH + elf_load_bias + 8 + (nbucket shl 2) // pointer
+                    elf_dynamic.dT_HASH + elf_load_bias + uint32_t * 1, uint32_t, elf_header.isLittleEndian) // value
+            bucket = elf_dynamic.dT_HASH + elf_load_bias + 8 // pointer
+            chain = elf_dynamic.dT_HASH + elf_load_bias + 8 + (nbucket shl 2) // pointer
         }
 
-        if (elf_dynamic!!.dT_GNU_HASH > 0) {
+        if (elf_dynamic.dT_GNU_HASH > 0) {
             gnu_nbucket = ByteUtil.bytes2Int32(OS.mainImage.memory,
-                    elf_dynamic!!.dT_GNU_HASH + elf_load_bias + uint32_t * 0, uint32_t, isLittleEndian)
+                    elf_dynamic.dT_GNU_HASH + elf_load_bias + uint32_t * 0, uint32_t, isLittleEndian)
             gnu_maskwords = ByteUtil.bytes2Int32(OS.mainImage.memory,
-                    elf_dynamic!!.dT_GNU_HASH + elf_load_bias + uint32_t * 2, uint32_t, isLittleEndian)
+                    elf_dynamic.dT_GNU_HASH + elf_load_bias + uint32_t * 2, uint32_t, isLittleEndian)
             gnu_shift2 = ByteUtil.bytes2Int32(OS.mainImage.memory,
-                    elf_dynamic!!.dT_GNU_HASH + elf_load_bias + uint32_t * 3, uint32_t, isLittleEndian)
-            gnu_bloom_filter = elf_dynamic!!.dT_GNU_HASH + elf_load_bias + 16 // pointer
+                    elf_dynamic.dT_GNU_HASH + elf_load_bias + uint32_t * 3, uint32_t, isLittleEndian)
+            gnu_bloom_filter = elf_dynamic.dT_GNU_HASH + elf_load_bias + 16 // pointer
             gnu_bucket = gnu_bloom_filter + gnu_maskwords // pointer
 
             gnu_chain = gnu_bucket + gnu_nbucket - ByteUtil.bytes2Int32(OS.mainImage.memory,
-                    elf_dynamic!!.dT_GNU_HASH + elf_load_bias + uint32_t * 1, uint32_t, isLittleEndian) // pointer
+                    elf_dynamic.dT_GNU_HASH + elf_load_bias + uint32_t * 1, uint32_t, isLittleEndian) // pointer
 
             if (!ByteUtil.powerof2(gnu_maskwords))
                 throw IllegalArgumentException("invalid maskwords for gnu_hash = 0x"
@@ -332,37 +323,37 @@ private constructor(file: File, do_load: Boolean) {
             is_gnu_hash = true
         }
 
-        symtab = elf_dynamic!!.dT_SYMTAB + elf_load_bias // pointer
+        symtab = elf_dynamic.dT_SYMTAB + elf_load_bias // pointer
 
-        strtab = elf_dynamic!!.dT_STRTAB + elf_load_bias // pointer
+        strtab = elf_dynamic.dT_STRTAB + elf_load_bias // pointer
 
-        pltgot = elf_dynamic!!.dT_PLTGOT + elf_load_bias
+        pltgot = elf_dynamic.dT_PLTGOT + elf_load_bias
 
-        hasDT_SYMBOLIC = elf_dynamic!!.dT_SYMBOLIC
+        hasDT_SYMBOLIC = elf_dynamic.dT_SYMBOLIC
 
-        if (elf_dynamic!!.dT_INIT != 0) {
-            init_func = elf_dynamic!!.dT_INIT + elf_load_bias // pointer
+        if (elf_dynamic.dT_INIT != 0) {
+            init_func = elf_dynamic.dT_INIT + elf_load_bias // pointer
             hasInitFunc = true
         }
 
-        if (elf_dynamic!!.dT_INIT_ARRAY != 0) {
-            init_array = elf_dynamic!!.dT_INIT_ARRAY + elf_load_bias // pointer
-            init_array_sz = elf_dynamic!!.dT_INIT_ARRAYSZ / ELF32_Addr
+        if (elf_dynamic.dT_INIT_ARRAY != 0) {
+            init_array = elf_dynamic.dT_INIT_ARRAY + elf_load_bias // pointer
+            init_array_sz = elf_dynamic.dT_INIT_ARRAYSZ / ELF32_Addr
             hasInitArray = true
         }
 
-        if (elf_dynamic!!.dT_FINI != 0) {
-            fini_func = elf_dynamic!!.dT_FINI + elf_load_bias // pointer
+        if (elf_dynamic.dT_FINI != 0) {
+            fini_func = elf_dynamic.dT_FINI + elf_load_bias // pointer
             hasFiniFunc = true
         }
-        if (elf_dynamic!!.dT_FINI_ARRAY != 0) {
-            fini_array = elf_dynamic!!.dT_FINI_ARRAY + elf_load_bias// pointer
-            fini_array_sz = elf_dynamic!!.dT_FINI_ARRAYSZ / ELF32_Addr
+        if (elf_dynamic.dT_FINI_ARRAY != 0) {
+            fini_array = elf_dynamic.dT_FINI_ARRAY + elf_load_bias// pointer
+            fini_array_sz = elf_dynamic.dT_FINI_ARRAYSZ / ELF32_Addr
             hasFiniArray = false
         }
 
         /* verify some parameters */
-        if (elf_dynamic!!.dT_HASH <= 0 && elf_dynamic!!.dT_GNU_HASH <= 0)
+        if (elf_dynamic.dT_HASH <= 0 && elf_dynamic.dT_GNU_HASH <= 0)
             throw RuntimeException("empty/mission DT_HASH and DT_GNU_HASH , new hash type in the future ?")
         if (strtab == 0)
             throw RuntimeException("empty/missing DT_STRTAB")
@@ -371,7 +362,7 @@ private constructor(file: File, do_load: Boolean) {
 
         if (!forDisassmebler) {
 
-            val needed = elf_dynamic!!.needLibraryName
+            val needed = elf_dynamic.needLibraryName
             this.needed = arrayOfNulls<ELF>(needed.size)
 
             /* Link elf requires libraries */
@@ -435,20 +426,21 @@ private constructor(file: File, do_load: Boolean) {
 
     private fun extractFakeFunction(): List<String> {
 
-        val rels = elf_dynamic!!.relocateSections
+        val rels = elf_dynamic.relocateSections
 
         val fake_relocation = ArrayList<String>()
 
-        for (r in rels!!) {
-
+        rels.forEach {
+            r ->
             val entries = r.relocateEntry
-            for (rel in entries!!) {
+            entries.forEach {
+                rel ->
                 /*
 				 * ElfW(Addr) reloc = static_cast<ElfW(Addr)>(rel->r_offset +
 				 * load_bias);
 				 */
                 val sym = ELF_R_SYM(rel!!.r_info)
-                val type = ELF_R_TYPE(rel!!.r_info).toInt()
+                val type = ELF_R_TYPE(rel.r_info).toInt()
                 Log.e("strtab " + strtab)
                 Log.e("sym " + sym)
                 Log.e("symtab " + symtab)
@@ -457,7 +449,7 @@ private constructor(file: File, do_load: Boolean) {
                         Elf_Sym.reinterpret_cast(OS.mainImage.memory, symtab + Elf_Sym.size() * sym).st_name) + strtab, OS.mainImage)
 
                 if (type == 0)
-                    continue
+                    return@forEach
 
                 if (sym != 0) {
                     /* we need to construct a fake function to fill GOT */
@@ -474,19 +466,19 @@ private constructor(file: File, do_load: Boolean) {
      */
     fun fake_soinfo_relocate() {
 
-        val rels = elf_dynamic!!.relocateSections
+        val rels = elf_dynamic.relocateSections
 
-        for (r in rels) {
-
+        rels.forEach {
+            r ->
             val entries = r.relocateEntry
-            for (rel in entries!!) {
+            for (rel in entries) {
                 /*
 				 * ElfW(Addr) reloc = static_cast<ElfW(Addr)>(rel->r_offset +
 				 * load_bias);
 				 */
                 val reloc = ByteUtil.bytes2Int32(rel!!.r_offset) + elf_load_bias
-                val sym = ELF_R_SYM(rel!!.r_info)
-                val type = ELF_R_TYPE(rel!!.r_info).toInt()
+                val sym = ELF_R_SYM(rel.r_info)
+                val type = ELF_R_TYPE(rel.r_info).toInt()
                 val addend = get_addend(rel, reloc)
 
                 val sym_name = ByteUtil.getStringFromMemory(ByteUtil.bytes2Int32(
@@ -578,7 +570,7 @@ private constructor(file: File, do_load: Boolean) {
         if (ELF_R_TYPE(rel.r_info).toInt() == R_ARM_RELATIVE || ELF_R_TYPE(rel.r_info).toInt() == R_ARM_IRELATIVE
                 || ELF_R_TYPE(rel.r_info).toInt() == R_ARM_ABS32 || ELF_R_TYPE(rel.r_info).toInt() == R_ARM_REL32)
             return ByteUtil.bytes2Int32(OS.mainImage.memory, reloc_addr, ELF32_Addr,
-                    elf_header!!.isLittleEndian) // Extract
+                    elf_header.isLittleEndian) // Extract
         // reloc_addr(pointer)'s
         // value
 
@@ -595,9 +587,9 @@ private constructor(file: File, do_load: Boolean) {
      */
     fun soinfo_relocate() {
 
-        val rels = elf_dynamic!!.relocateSections
+        val rels = elf_dynamic.relocateSections
 
-        var s: Elf_Sym? = null
+        var s: Elf_Sym?
 
         for (r in rels) {
 
@@ -608,8 +600,8 @@ private constructor(file: File, do_load: Boolean) {
 				 * load_bias);
 				 */
                 val reloc = ByteUtil.bytes2Int32(rel!!.r_offset) + elf_load_bias
-                val sym = ELF_R_SYM(rel!!.r_info)
-                val type = ELF_R_TYPE(rel!!.r_info).toInt()
+                val sym = ELF_R_SYM(rel.r_info)
+                val type = ELF_R_TYPE(rel.r_info).toInt()
                 val addend = get_addend(rel, reloc)
 
                 val sym_name = ByteUtil.getStringFromMemory(ByteUtil.bytes2Int32(
@@ -641,7 +633,7 @@ private constructor(file: File, do_load: Boolean) {
 						 * word "extern" when we can't found symbol
 						 */
 
-                        if (ELF_ST_BIND(s!!.st_info.toInt()) != STB_WEAK)
+                        if (ELF_ST_BIND(s.st_info.toInt()) != STB_WEAK)
                             throw RuntimeException("cannot locate symbol \"" + sym_name + "\" referenced by \""
                                     + name + "\"... s.st_info " + Integer.toHexString(ELF_ST_BIND(s.st_info.toInt()))
                                     + " , s at " + Integer.toHexString(symtab + sym * Elf_Sym.size()))
@@ -664,13 +656,12 @@ private constructor(file: File, do_load: Boolean) {
 
                     } else {// we got a definition
 
-                        sym_address = lsi[0]!!.elf_load_bias + ByteUtil.bytes2Int32(s!!.st_value)
+                        sym_address = lsi[0]!!.elf_load_bias + ByteUtil.bytes2Int32(s.st_value)
 
                         Log.e("Found Sym : " + sym_name + " at : " + Integer.toHexString(sym_address))
                     }
 
-                } else
-                    s = null
+                }
 
                 /*---------------------------------------------------------------------------------------*/
 
@@ -730,10 +721,8 @@ private constructor(file: File, do_load: Boolean) {
                         /* relocate here */
 
                     }
-
                     else -> throw RuntimeException("unknown weak reloc type" + type)
                 }
-
                 Log.e()
             }
         }
@@ -806,18 +795,17 @@ private constructor(file: File, do_load: Boolean) {
             return null
         }
 
-        fun dlsym(elf: ELF?, functionName: String): Int {
+        fun dlsym(elf: ELF, functionName: String): Int {
 
-            if (!elf!!.mEnable || forDisassmebler)
+            if (!elf.mEnable || forDisassmebler)
                 return -1
 
-            if (elf != null) {
-                val sym = soinfo_elf_lookup(elf, elf_hash(functionName), functionName)
+            val sym = soinfo_elf_lookup(elf, elf_hash(functionName), functionName)
 
-                if (sym != null)
-                    if (ELF_ST_BIND(sym.st_info.toInt()) == STB_GLOBAL && ByteUtil.bytes2Int32(sym.st_shndx) != 0)
-                        return ByteUtil.bytes2Int32(sym.st_value) + elf.elf_load_bias
-            }
+            if (sym != null)
+                if (ELF_ST_BIND(sym.st_info.toInt()) == STB_GLOBAL && ByteUtil.bytes2Int32(sym.st_shndx) != 0)
+                    return ByteUtil.bytes2Int32(sym.st_value) + elf.elf_load_bias
+
             return 0
         }
 
@@ -836,11 +824,11 @@ private constructor(file: File, do_load: Boolean) {
 
             for (n in name_array) {
                 h = (h shl 4) + n.toLong()
-                g = h and 0xf0000000.toLong()
+                g = h and 0xf0000000
                 h = h xor g
                 h = h xor g.ushr(24)
             }
-            return h and 0xffffffff.toLong()
+            return h and 0xffffffff
         }
 
         /*
@@ -867,14 +855,14 @@ private constructor(file: File, do_load: Boolean) {
         private fun soinfo_elf_lookup(si: ELF?, hash: Long, name: String): Elf_Sym? {
 
             if (si == null)
-                return null
+                return null;
 
             val symtab = si.symtab
             val strtab = si.strtab
 
             var n = ByteUtil.bytes2Int32(OS.mainImage.memory,
                     (si.bucket + hash % si.nbucket * uint32_t).toInt(), uint32_t,
-                    si.elf_header!!.isLittleEndian)
+                    si.elf_header.isLittleEndian)
 
             SymSearch@
             while (n != 0) {
@@ -883,7 +871,7 @@ private constructor(file: File, do_load: Boolean) {
 
                 if (name != ByteUtil.getStringFromMemory(strtab + ByteUtil.bytes2Int32(s.st_name), OS.mainImage)) {
                     n = ByteUtil.bytes2Int32(OS.mainImage.memory,
-                            si.chain + n * uint32_t, uint32_t, si.elf_header!!.isLittleEndian)
+                            si.chain + n * uint32_t, uint32_t, si.elf_header.isLittleEndian)
                     continue
                 } else {
 
@@ -896,11 +884,10 @@ private constructor(file: File, do_load: Boolean) {
 
                             return s
                         }
-
                         else -> Log.e("Unknown Bind Type : " + ByteUtil.byte2Hex(s.st_info))
                     }
                 }
-                n = ByteUtil.bytes2Int32(OS.mainImage.memory, si.chain + n * uint32_t, uint32_t, si.elf_header!!.isLittleEndian)
+                n = ByteUtil.bytes2Int32(OS.mainImage.memory, si.chain + n * uint32_t, uint32_t, si.elf_header.isLittleEndian)
             }
             return null
         }
@@ -986,7 +973,7 @@ private constructor(file: File, do_load: Boolean) {
         @Throws(Throwable::class)
         @JvmStatic fun main(args: Array<String>) {
 
-            ELF("C:\\Users\\monitor\\Desktop\\Decomplied File\\libtest.so", true);
+            ELF("C:\\Users\\monitor\\Desktop\\Decomplied File\\libtest.so", true)
 
         }
     }

@@ -1,9 +1,8 @@
 package brilliant.elf.vm
 
+import brilliant.elf.util.ByteUtil
 import java.io.PrintStream
 import java.io.RandomAccessFile
-
-import brilliant.elf.util.ByteUtil
 
 class OS private constructor() {
     /**
@@ -52,7 +51,7 @@ class OS private constructor() {
         out.flush()
     }
 
-    public companion object {
+    companion object {
 
         val mainImage = OS()
 
@@ -62,13 +61,13 @@ class OS private constructor() {
 
         var debug = true
 
-        @Deprecated("")
+        @Deprecated("not implements")
         val PROT_EXEC: Int = 4// not implements
-        @Deprecated("")
+        @Deprecated("not implements")
         val PROT_READ: Int = 1// not implements
-        @Deprecated("")
+        @Deprecated("not implements")
         val PROT_WRITE: Int = 2// not implements
-        @Deprecated("")
+        @Deprecated("not implements")
         val PROT_NONE: Int = 0// not implements
 
         val MAP_FIXED: Int = 16

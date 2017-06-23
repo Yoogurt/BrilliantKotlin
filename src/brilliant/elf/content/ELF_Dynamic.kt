@@ -40,23 +40,21 @@ import brilliant.elf.content.ELF_Constant.PT_Dynamic.DT_SYMENT
 import brilliant.elf.content.ELF_Constant.PT_Dynamic.DT_SYMTAB
 import brilliant.elf.content.ELF_Constant.PT_Dynamic.DT_TEXTREL
 import brilliant.elf.content.ELF_Constant.ProgramHeaderContent.PT_DYNAMIC
-
-import java.io.IOException
-import java.io.RandomAccessFile
-import java.util.ArrayList
-
 import brilliant.elf.content.ELF_ProgramHeader.ELF_Phdr
 import brilliant.elf.support.CastSupport
 import brilliant.elf.util.ByteUtil
 import brilliant.elf.util.Log
 import brilliant.elf.vm.OS
+import java.io.IOException
+import java.io.RandomAccessFile
+import java.util.*
 
 internal class ELF_Dynamic
 /**
  * we decode this in file nor memory
  */
 @Throws(IOException::class)
-constructor(raf: RandomAccessFile, mSelf: ELF_Phdr, var elf_load_bias: Int) {
+constructor(raf: RandomAccessFile, val mSelf: ELF_Phdr, val elf_load_bias: Int) {
 
     internal class Elf_Dyn {
         lateinit var d_val: ByteArray
@@ -126,7 +124,6 @@ constructor(raf: RandomAccessFile, mSelf: ELF_Phdr, var elf_load_bias: Int) {
 
     private val mNeededDynamicLibraryPtr = ArrayList<Int>()
     private val mNeededDynamicLibrary = ArrayList<String>()
-    private val mSelf: ELF_ProgramHeader.ELF_Phdr
 
     private var mSoName = 0
     private var mDynamicLibraryName: String? = null
@@ -157,14 +154,12 @@ constructor(raf: RandomAccessFile, mSelf: ELF_Phdr, var elf_load_bias: Int) {
 
     init {
 
-        this.mSelf = mSelf
-
         if (mSelf.programHeader.elfHeader.is32Bit)
             loadDynamicSegment32(raf)
         else
             loadDynamicSegment64()
 
-        loadRelocateSection(raf)
+        loadRelocateSection()
     }
 
     @Throws(IOException::class)
@@ -184,10 +179,10 @@ constructor(raf: RandomAccessFile, mSelf: ELF_Phdr, var elf_load_bias: Int) {
 
             val dynamic = generateElfDynamicEntry32()
 
-            raf.read(dynamic.d_un!!)
-            raf.read(dynamic.d_val!!)
+            raf.read(dynamic.d_un)
+            raf.read(dynamic.d_val)
 
-            if (!parseDynamicEntry(dynamic, raf)) {
+            if (!parseDynamicEntry(dynamic)) {
                 mInternalDynamics.add(dynamic)
                 break
             }
@@ -195,8 +190,8 @@ constructor(raf: RandomAccessFile, mSelf: ELF_Phdr, var elf_load_bias: Int) {
             mInternalDynamics.add(dynamic)
         }
 
-        loadNeedLibraryName(raf) // we load string after string table was found
-        obtainSoName(raf)
+        loadNeedLibraryName() // we load string after string table was found
+        obtainSoName()
 
         Log.e("   " + LogConstant.DIVISION_LINE)
         Log.e("   " + mInternalDynamics.size + " DT_DYNAMIC Found")
@@ -217,7 +212,7 @@ constructor(raf: RandomAccessFile, mSelf: ELF_Phdr, var elf_load_bias: Int) {
     }
 
     @Throws(IOException::class)
-    private fun loadNeedLibraryName(raf: RandomAccessFile) {
+    private fun loadNeedLibraryName() {
         for (`val` in mNeededDynamicLibraryPtr) {
 
             val name = getStrTabIndexString(`val`)
@@ -228,7 +223,7 @@ constructor(raf: RandomAccessFile, mSelf: ELF_Phdr, var elf_load_bias: Int) {
     }
 
     @Throws(IOException::class)
-    private fun obtainSoName(raf: RandomAccessFile) {
+    private fun obtainSoName() {
 
         mDynamicLibraryName = getStrTabIndexString(mSoName)
         Log.e("   " + LogConstant.DIVISION_LINE)
@@ -237,9 +232,9 @@ constructor(raf: RandomAccessFile, mSelf: ELF_Phdr, var elf_load_bias: Int) {
     }
 
     @Throws(IOException::class)
-    private fun parseDynamicEntry(dynamic: Elf_Dyn, raf: RandomAccessFile): Boolean {
+    private fun parseDynamicEntry(dynamic: Elf_Dyn): Boolean {
 
-        when (ByteUtil.bytes2Int32(dynamic.d_un!!)) {
+        when (ByteUtil.bytes2Int32(dynamic.d_un)) {
             DT_NULL -> return false
             DT_NEEDED // elf necessary library
             -> mNeededDynamicLibraryPtr.add(getVal(dynamic.d_val))
@@ -317,7 +312,7 @@ constructor(raf: RandomAccessFile, mSelf: ELF_Phdr, var elf_load_bias: Int) {
                 Log.e("   " + "DT_REL at " + ByteUtil.bytes2Hex(dynamic.d_val))
             }
             DT_RELSZ -> {
-                dT_RELSZ = getVal(dynamic.d_val).toInt()
+                dT_RELSZ = getVal(dynamic.d_val)
                 Log.e("   " + LogConstant.DIVISION_LINE)
                 Log.e("   " + "DT_RELSZ : " + getVal(dynamic.d_val))
             }
@@ -447,21 +442,21 @@ constructor(raf: RandomAccessFile, mSelf: ELF_Phdr, var elf_load_bias: Int) {
 
     private fun readDT_JMPREL(dynamic: Elf_Dyn) {
         if (mPltRel == 0)
-            mPltRel = getVal(dynamic.d_val).toInt()
+            mPltRel = getVal(dynamic.d_val)
         else
             throw IllegalStateException("DT_JMPREL appear over once")
     }
 
     private fun readDT_REL(dynamic: Elf_Dyn) {
         if (dT_REL == 0)
-            dT_REL = getVal(dynamic.d_val).toInt()
+            dT_REL = getVal(dynamic.d_val)
         else
             throw IllegalStateException("DT_REL appear over once")
     }
 
     private fun readDT_ANDROID_REL(dynamic: Elf_Dyn) {
         if (dT_ANDROID_REL == 0)
-            dT_ANDROID_REL = getVal(dynamic.d_val).toInt()
+            dT_ANDROID_REL = getVal(dynamic.d_val)
         else
             throw IllegalStateException("DT_ANDROID_REL appear over once")
     }
@@ -591,7 +586,7 @@ constructor(raf: RandomAccessFile, mSelf: ELF_Phdr, var elf_load_bias: Int) {
     }
 
     @Throws(IOException::class)
-    private fun loadRelocateSection(raf: RandomAccessFile) {
+    private fun loadRelocateSection() {
         if (dT_REL != 0)
             mRelocateSections.add(ELF_Relocate(dT_REL, dT_RELSZ, this, false))
         if (mPltRel != 0)

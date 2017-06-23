@@ -196,14 +196,14 @@ constructor(`is`: RandomAccessFile, val elfHeader: ELF_Header,
     @Throws(IOException::class)
     private fun read32ProgramHeaderInternal(ph: ELF_Phdr, `is`: RandomAccessFile) {
 
-        `is`.read(ph.p_type!!)
-        `is`.read(ph.p_offset!!)
-        `is`.read(ph.p_vaddr!!)
-        `is`.read(ph.p_paddr!!)
-        `is`.read(ph.p_filesz!!)
-        `is`.read(ph.p_memsz!!)
-        `is`.read(ph.p_flags!!)
-        `is`.read(ph.p_align!!)
+        `is`.read(ph.p_type)
+        `is`.read(ph.p_offset)
+        `is`.read(ph.p_vaddr)
+        `is`.read(ph.p_paddr)
+        `is`.read(ph.p_filesz)
+        `is`.read(ph.p_memsz)
+        `is`.read(ph.p_flags)
+        `is`.read(ph.p_align)
 
     }
 
@@ -239,7 +239,7 @@ constructor(`is`: RandomAccessFile, val elfHeader: ELF_Header,
 
     fun getProgramHeaderBySegmentPosition(position: Int): ELF_Phdr? {
 
-        for (mT in allDecodedProgramHeader!!) {
+        for (mT in allDecodedProgramHeader) {
             if (ByteUtil.bytes2Int32(mT!!.p_offset, elfHeader.isLittleEndian) == position) {
                 return mT
             }
@@ -250,7 +250,7 @@ constructor(`is`: RandomAccessFile, val elfHeader: ELF_Header,
 
     fun getProgramHeaderBySegmentPosition(position: Long): ELF_Phdr? {
 
-        for (mT in allDecodedProgramHeader!!) {
+        for (mT in allDecodedProgramHeader) {
             if (ByteUtil.bytes2Int64(mT!!.p_offset) == position) {
                 return mT
             }

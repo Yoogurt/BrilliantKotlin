@@ -1,9 +1,8 @@
 package brilliant.elf.util
 
+import brilliant.elf.vm.OS
 import java.io.IOException
 import java.io.RandomAccessFile
-
-import brilliant.elf.vm.OS
 import kotlin.experimental.or
 
 object ByteUtil {
@@ -54,11 +53,7 @@ object ByteUtil {
                     + "from data2 position " + desStartIndex + " to " + length + srcStartIndex
                     + " , data2 total length +" + data2.size)
 
-        for (ptr in 0..length - 1)
-            if (data1[ptr + srcStartIndex] != data2[ptr + desStartIndex])
-                return false
-
-        return true
+        return (0..length - 1).all { data1[it + srcStartIndex] == data2[it + desStartIndex] }
     }
 
     fun equals(data: ByteArray, startIndex: Int, length: Int, obj: Int, isLittleEndian: Boolean): Boolean {
@@ -72,7 +67,7 @@ object ByteUtil {
         return if (data < 0) data + 256 else data.toInt()
     }
 
-    @JvmOverloads fun bytes2Int32(data: ByteArray, startIndex: Int , length: Int, isLittleEndian: Boolean): Int {
+    fun bytes2Int32(data: ByteArray, startIndex: Int, length: Int, isLittleEndian: Boolean): Int {
 
         if (isLittleEndian) {
 
@@ -311,7 +306,7 @@ object ByteUtil {
     }
 
     fun short2bytes(`val`: Short): ByteArray {
-        var `val` : Int = `val`.toInt()
+        var `val`: Int = `val`.toInt()
         val ret = ByteArray(2)
         var i = 0
         while (i < 2) {
